@@ -139,7 +139,7 @@ const { audioDataUrl } = await generateAudio({
 // Use <audio src={audioDataUrl} controls />
 ```
 
-For detailed explanations of each parameter, refer to the [Parameter Documentation](link-to-docs).
+For detailed explanations of each parameter, refer to the [Parameter Documentation](Parameters.md).
 
 ---
 
