@@ -75,7 +75,7 @@ DiaGen aims to advance the field of text-to-audio synthesis through the followin
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-org/diagen.git
+   git clone https://github.com/mylife-as-miles/DiaGen.git
    cd diagen
    ```
 
