@@ -60,109 +60,58 @@ export default function DiaGenApp() {
   const generateAudio = async () => {
     try {
       setIsGenerating(true)
-      setLoadingProgress(0)
+      setLoadingProgress(0) // Reset progress
       setActiveTab("output")
 
-      // Simulate progress for demo purposes
+      const formData = new FormData()
+      formData.append("text_input", inputText)
+      if (audioPrompt) {
+        formData.append("audio_prompt_input", audioPrompt)
+      }
+      formData.append("max_new_tokens", maxNewTokens.toString())
+      formData.append("cfg_scale", cfgScale.toString())
+      formData.append("temperature", temperature.toString())
+      formData.append("top_p", topP.toString())
+      formData.append("cfg_filter_top_k", cfgFilterTopK.toString())
+      formData.append("speed_factor", speedFactor.toString())
+
+      // Simulate progress for a better user experience while waiting for the API
       const progressInterval = setInterval(() => {
         setLoadingProgress((prev) => {
-          const newProgress = prev + Math.random() * 10
-          return newProgress > 100 ? 100 : newProgress
+          if (prev >= 95) {
+            clearInterval(progressInterval)
+            return 95
+          }
+          return prev + 5
         })
-      }, 300)
+      }, 500)
 
-      // In a real implementation, you would use the @gradio/client as shown in the API docs
-      // This is a simplified mock of the API call
-      /* 
-      const client = await Client.connect("nari-labs/Dia-1.6B");
-      const result = await client.predict("/generate_audio", { 		
-        text_input: inputText, 
-        audio_prompt_input: audioPrompt, 		
-        max_new_tokens: maxNewTokens, 		
-        cfg_scale: cfgScale, 		
-        temperature: temperature, 		
-        top_p: topP, 		
-        cfg_filter_top_k: cfgFilterTopK, 		
-        speed_factor: speedFactor, 
-      });
-      */
+      const response = await fetch("/api/generate-audio", {
+        method: "POST",
+        body: formData,
+      })
 
-      // Mock response - in a real implementation, this would be the result from the API
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-      clearInterval(progressInterval)
-      setLoadingProgress(100)
+      clearInterval(progressInterval) // Stop simulating progress
 
-      // Use a blob URL instead of a direct path for better compatibility
-      // This creates an in-memory audio blob that's guaranteed to work
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-
-      const recordingLength = 2 // 2 seconds of audio
-      const sampleRate = audioContext.sampleRate
-      const buffer = audioContext.createBuffer(1, sampleRate * recordingLength, sampleRate)
-      const data = buffer.getChannelData(0)
-
-      // Generate a simple sine wave
-      for (let i = 0; i < buffer.length; i++) {
-        data[i] = Math.sin(i * 0.01) * 0.5
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("API Error:", errorData)
+        throw new Error(errorData.error || `Request failed with status ${response.status}`)
       }
 
-      // Convert buffer to wav blob
-      const wavBlob = bufferToWave(buffer, buffer.length)
-      const blobUrl = URL.createObjectURL(wavBlob)
+      const result = await response.json()
 
-      setGeneratedAudio(blobUrl)
-      setIsGenerating(false)
+      if (result.success && result.audioDataUrl) {
+        setGeneratedAudio(result.audioDataUrl)
+        setLoadingProgress(100)
+      } else {
+        throw new Error(result.error || "API returned an error")
+      }
     } catch (error) {
       console.error("Error generating audio:", error)
+      // Optionally, set an error state to display a message to the user
+    } finally {
       setIsGenerating(false)
-    }
-  }
-
-  // Helper function to convert AudioBuffer to WAV Blob
-  function bufferToWave(buffer: AudioBuffer, len: number) {
-    const numOfChan = buffer.numberOfChannels
-    const length = len * numOfChan * 2 + 44
-    const wav = new ArrayBuffer(length)
-    const view = new DataView(wav)
-
-    // RIFF chunk descriptor
-    writeUTFBytes(view, 0, "RIFF")
-    view.setUint32(4, length - 8, true)
-    writeUTFBytes(view, 8, "WAVE")
-
-    // FMT sub-chunk
-    writeUTFBytes(view, 12, "fmt ")
-    view.setUint32(16, 16, true) // subchunk1size
-    view.setUint16(20, 1, true) // PCM
-    view.setUint16(22, numOfChan, true) // numOfChan
-    view.setUint32(24, buffer.sampleRate, true) // sampleRate
-    view.setUint32(28, buffer.sampleRate * 2 * numOfChan, true) // byteRate
-    view.setUint16(32, numOfChan * 2, true) // blockAlign
-    view.setUint16(34, 16, true) // bitsPerSample
-
-    // data sub-chunk
-    writeUTFBytes(view, 36, "data")
-    view.setUint32(40, length - 44, true)
-
-    // Write the PCM samples
-    const data = new Float32Array(buffer.getChannelData(0))
-    let offset = 44
-    for (let i = 0; i < data.length; i++, offset += 2) {
-      const sample = Math.max(-1, Math.min(1, data[i]))
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true)
-    }
-
-    return new Blob([wav], { type: "audio/wav" })
-  }
-
-  function writeUTFBytes(view: DataView, offset: number, string: string) {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i))
     }
   }
 
