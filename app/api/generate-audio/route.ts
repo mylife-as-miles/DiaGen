@@ -39,10 +39,27 @@ export async function POST(request: NextRequest) {
 
     console.log("Replicate output:", output)
 
-    const audioUrl = Array.isArray(output) ? output[0] : output
+    let audioUrl: string | undefined;
+
+    if (typeof output === "string") {
+      audioUrl = output;
+    } else if (Array.isArray(output)) {
+      audioUrl = output[0];
+    } else if (output && typeof (output as any).url === 'string') {
+      audioUrl = (output as any).url;
+    } else if (output && typeof (output as any).url === 'function') {
+      audioUrl = (output as any).url();
+    } else if (typeof output === 'object' && output !== null) {
+      // Fallback for object with a single URL value
+      const values = Object.values(output);
+      if (values.length > 0 && typeof values[0] === 'string' && values[0].startsWith('http')) {
+        audioUrl = values[0];
+      }
+    }
 
     if (!audioUrl) {
-      throw new Error("API did not return an audio file.")
+      console.error("Could not extract audio URL from output:", output)
+      throw new Error("API did not return a valid audio file URL.")
     }
 
     return NextResponse.json({
