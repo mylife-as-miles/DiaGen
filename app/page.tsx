@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, Play, Pause, Wand2 } from "lucide-react"
+import { Upload, Play, Pause, Wand2, Download } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { AudioVisualizer } from "@/components/audio-visualizer"
 
@@ -18,6 +18,7 @@ export default function DiaGenApp() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [activeTab, setActiveTab] = useState<"input" | "output">("input")
   const [showParticles, setShowParticles] = useState(false)
@@ -57,8 +58,20 @@ export default function DiaGenApp() {
     }
   }
 
+  const handleDownload = () => {
+    if (generatedAudio) {
+      const link = document.createElement("a")
+      link.href = generatedAudio
+      link.download = "generated_audio.wav"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
   const generateAudio = async () => {
     try {
+      setError(null)
       setIsGenerating(true)
       setLoadingProgress(0) // Reset progress
       setActiveTab("output")
@@ -109,7 +122,8 @@ export default function DiaGenApp() {
       }
     } catch (error) {
       console.error("Error generating audio:", error)
-      // Optionally, set an error state to display a message to the user
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
+      setError(`Failed to generate audio: ${errorMessage}`)
     } finally {
       setIsGenerating(false)
     }
@@ -304,11 +318,26 @@ export default function DiaGenApp() {
                       >
                         Regenerate
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-full hover:bg-zinc-800 transition-all duration-300"
+                        onClick={handleDownload}
+                      >
+                        <Download size={16} className="mr-2" />
+                        Download
+                      </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                    <p className="text-xl font-medium text-zinc-400">No audio generated yet</p>
+                    {error ? (
+                      <>
+                        <p className="text-xl font-medium text-red-400">Error</p>
+                        <p className="text-zinc-400 text-center">{error}</p>
+                      </>
+                    ) : (
+                      <p className="text-xl font-medium text-zinc-400">No audio generated yet</p>
+                    )}
                     <Button
                       onClick={() => setActiveTab("input")}
                       className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300"
